@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 #
-# @(!--#) @(#) rpass.py, version 002, 04-march-2020
+# @(!--#) @(#) rpass.py, version 003, 07-march-2020
 #
 # verify and (optionally) change password on one or more Raritan PDUs
 #
@@ -89,10 +89,8 @@ def padoutprompts(firstprompt, secondprompt):
     
 ############################################################################
 
-def getpassword(prompt):
-    prompt2 = 'Enter password again for verification'
-    
-    prompt, prompt2 = padoutprompts(prompt, prompt2)
+def getpassword(prompt1, prompt2):
+    prompt1, prompt2 = padoutprompts(prompt1, prompt2)
         
     attempts = 0
     
@@ -103,7 +101,7 @@ def getpassword(prompt):
             print('Too many attempts - giving up')
             return ''
             
-        pw1 = getpass.getpass(prompt)
+        pw1 = getpass.getpass(prompt1)
         
         if pw1 == '':
             print('Password cannot be null - try again')
@@ -123,6 +121,25 @@ def getpassword(prompt):
 
 ############################################################################
 
+def detag(html):
+    s = ''
+
+    intag = False
+
+    for c in str(html):
+        if c == '<':
+            intag = True
+        elif c == '>':
+            intag = False
+        elif not intag:
+            if c == '\n':
+                c = ' '
+            s += c
+
+    return s.strip()
+
+############################################################################
+
 def checkhost(host, username, password):
     global progname
     
@@ -132,8 +149,9 @@ def checkhost(host, username, password):
     
     try:
         nameplate = pdu_proxy.getNameplate()
-    except raritan.rpc.HttpException:
+    except raritan.rpc.HttpException as e:
         print('{}: problem accessing host "{}" - HttpException'.format(progname, host), file=sys.stderr)
+        print('{}  {}'.format(' ' * len(progname), detag(e)), file=sys.stderr)
         return ''
         
     return nameplate.serialNumber
@@ -203,10 +221,45 @@ def checkusernamepassword(hostfilename, username, password):
     
 ############################################################################
 
-# def setaccountpasswordreturncodes(rc):
-#    errmsg = '
-#     if rc < 0:
-        
+def error2text(error):
+    if error == 1:
+        text = 'Password Unchanged'
+    elif error == 2:
+        text = 'Password Empty'
+    elif error == 3:
+        text = 'Password Too Short'
+    elif error == 4:
+        text = 'Password Too Long'
+    elif error == 5:
+        text = 'Password Ctrl Chars'
+    elif error == 6:
+        text = 'Password Need Lower'
+    elif error == 7:
+        text = 'Password Need Upper'
+    elif error == 8:
+        text = 'Password Need Numeric'
+    elif error == 9:
+        text = 'Password Need Special'
+    elif error == 10:
+        text = 'Password In History'
+    elif error == 11:
+        text = 'Password Too Short For SNMP'
+    elif error == 12:
+        text = 'Invalid Argument'
+    elif error == 13:
+        text = 'Wrong Password'
+    elif error == 14:
+        text = 'Ssh Pubkey Data Too Large'
+    elif error == 15:
+        text = 'Ssh Pubkey Invalid'
+    elif error == 16:
+        text = 'Ssh Pubkey Not Supported'
+    elif error == 17:
+        text = 'Ssh RSA Pubkey Too Short'
+    else:
+        text = 'Unknown error code (rc={})'.format(error)
+
+    return text
 
 ############################################################################
 
@@ -217,14 +270,19 @@ def setpass(host, username, password, newpassword):
 
     userinfo = user_proxy.getInfo()
     
-    rc = user_proxy.setAccountPassword(newpassword)
+    try:
+        rc = user_proxy.setAccountPassword(newpassword)
+    except raritan.rpc.HttpException as e:
+        print('{}: problem changing password on host "{}" - HttpException'.format(progname, host), file=sys.stderr)
+        print('{}  {}'.format(' ' * len(progname), detag(e)), file=sys.stderr)
+        return 1
+        
+    if rc != 0:
+        print('{}: password change on host "{}" failed with return code={}'.format(progname, host, rc), file=sys.stderr)
+        print('{}  {}'.format(' ' * len(progname), error2text(rc)), file=sys.stderr)
+        return 1
     
-    if rc == 0:
-        return 0
-    
-    print('{}: password change on host "{}" failed with return code={}'.format(progname, host, rc), file=sys.stderr)
-    
-    return 1
+    return 0
 
 ############################################################################
 
@@ -288,7 +346,7 @@ def main():
 
     print('{} in host file "{}"'.format(msg, hostfilename))
 
-    password = getpassword('Enter password for user {}'.format(username))
+    password = getpassword('Enter password for user {}'.format(username), 'Enter password again for verification')
     
     if password == '':
         return 1
@@ -305,7 +363,7 @@ def main():
         print('OK, maybe later.  Program stopped by user')
         return 0
 
-    newpassword = getpassword('Enter new password for user {}'.format(username))
+    newpassword = getpassword('Enter new password for user {}'.format(username), 'Enter password again for verification')
     
     if newpassword == '':
         return 1
