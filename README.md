@@ -83,7 +83,7 @@ This can be handy if you have groups of PDUs with different passwords between gr
 ## Format of the `hosts.txt` file
 
 The format of the `hosts.txt` file (or any file specified with the `--hostfile` command line
-argument is one hostname per line.  IP addresses can also be specified.  Blank lines are ignored.
+argument) is one hostname per line.  IP addresses can also be specified.  Blank lines are ignored.
 Also lines beginning with the `#` character are treated as comments and ignored.  This can be useful for
 commenting out lines.
 
