@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 #
-# @(!--#) @(#) rpass.py, version 003, 07-march-2020
+# @(!--#) @(#) rpass.py, version 003, 01-july-2020
 #
 # verify and (optionally) change password on one or more Raritan PDUs
 #
